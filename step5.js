@@ -6,9 +6,9 @@ const Papa = require("papaparse");
 // コマンドライン引数を取得
 const args = process.argv;
 
-let mainCsvFilePath = "output/tsr_new_companies.csv";
-let corporateNumberCsvFilePath = "output/corporate_number_validated.csv";
-let outputCsvFilePath = "output/tsr_with_corporate_number.csv";
+let mainCsvFilePath = "output/step3_insert.csv";
+let corporateNumberCsvFilePath = "output/step4.csv";
+let outputCsvFileDir = "output";
 
 // 引数をパース
 for (let i = 0; i < args.length - 1; i++) {
@@ -19,7 +19,7 @@ for (let i = 0; i < args.length - 1; i++) {
     corporateNumberCsvFilePath = args[i + 1];
     i++;
   } else if (args[i] === "-o") {
-    outputCsvFilePath = args[i + 1];
+    outputCsvFileDir = args[i + 1];
     i++;
   }
 }
@@ -27,12 +27,6 @@ for (let i = 0; i < args.length - 1; i++) {
 // -----------------------------------------------------------
 // 変換メソッド群
 // -----------------------------------------------------------
-
-// csv拡張子を除いたファイル名を出力
-const filenameWithoutCsv = (fp) => {
-  if (!fp) return "";
-  return fp.replace(/\.csv$/i, "");
-};
 
 // 法人番号のリストを都道府県別に分割する関数
 // 処理速度を効率的にするため
@@ -92,12 +86,6 @@ const prefectureCorpolateNumberList = {
 // -----------------------------------------------------------
 
 const main = async () => {
-  // 出力先ディレクトリを作成（なければ）
-  const outputDir = path.dirname(outputCsvFilePath);
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
   const corporateNumberHeaders = [];
 
   // 法人番号のデータを読み込む
@@ -308,6 +296,16 @@ const main = async () => {
 
   const monthString = String(currentDate.getMonth() + 1).padStart(2, "0");
   const dateString = String(currentDate.getDate()).padStart(2, "0");
+  const hourString = String(currentDate.getHours()).padStart(2, "0");
+  const minuteString = String(currentDate.getMinutes()).padStart(2, "0");
+  const secondString = String(currentDate.getSeconds()).padStart(2, "0");
+
+  // 日時別の出力ディレクトリを作成（例: output/step5_20260629123016）
+  const dateDir = `step5_${currentDate.getFullYear()}${monthString}${dateString}${hourString}${minuteString}${secondString}`;
+  const outputDir = path.join(outputCsvFileDir, dateDir);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
 
   let hitCounter = 0;
   for (let rIndex = 0; rIndex < reliabilityList.length; rIndex++) {
@@ -316,11 +314,10 @@ const main = async () => {
       `📋 TSRのCSVから 信頼度${reliabilityList[rIndex]} の法人番号を検索中...`
     );
 
-    const outputFileName = `${filenameWithoutCsv(
-      outputCsvFilePath
-    )}_${currentDate.getFullYear()}${monthString}${dateString}_${
-      reliabilityList[rIndex]
-    }_.csv`;
+    const outputFileName = path.join(
+      outputDir,
+      `${reliabilityList[rIndex]}.csv`
+    );
 
     await new Promise(async (resolve, reject) => {
       try {

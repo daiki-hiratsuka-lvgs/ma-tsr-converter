@@ -7,7 +7,7 @@ const Papa = require("papaparse");
 const args = process.argv;
 
 let mainCsvFilePath = "";
-let outputCsvFilePath = "output/corporate_number_validated.csv";
+let outputCsvFilePath = "output/step4.csv";
 
 // 引数をパース
 for (let i = 0; i < args.length - 1; i++) {

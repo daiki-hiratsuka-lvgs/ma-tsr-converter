@@ -7,7 +7,7 @@ const Papa = require("papaparse");
 const args = process.argv;
 
 let mainCsvFilePath = "";
-let outputCsvFilePath = "";
+let outputCsvFilePath = "output";
 let salesForceCsvFilePath = "";
 
 // 引数をパース
@@ -24,8 +24,8 @@ for (let i = 0; i < args.length - 1; i++) {
   }
 }
 
-let outputWithIdCsvFileName = `${outputCsvFilePath.replace(".csv", "")}_update.csv`;
-let outputWithoutIdCsvFileName = `${outputCsvFilePath.replace(".csv", "")}_insert.csv`;
+let outputWithIdCsvFileName = "update.csv";
+let outputWithoutIdCsvFileName = "insert.csv";
 
 // -----------------------------------------------------------
 // メイン処理
@@ -36,14 +36,24 @@ let outputWithoutIdCsvFileName = `${outputCsvFilePath.replace(".csv", "")}_inser
  */
 const main = async () => {
   try {
-    // 出力先ディレクトリを作成（なければ）
-    [outputWithIdCsvFileName, outputWithoutIdCsvFileName].forEach(
-      (fileName) => {
-        const outputDir = path.dirname(fileName);
-        if (!fs.existsSync(outputDir)) {
-          fs.mkdirSync(outputDir, { recursive: true });
-        }
-      },
+    // 日時別の出力ディレクトリを作成（例: output/20260629123016）
+    const currentDate = new Date();
+    const monthString = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const dateString = String(currentDate.getDate()).padStart(2, "0");
+    const hourString = String(currentDate.getHours()).padStart(2, "0");
+    const minuteString = String(currentDate.getMinutes()).padStart(2, "0");
+    const secondString = String(currentDate.getSeconds()).padStart(2, "0");
+    const dateDir = `step6_${currentDate.getFullYear()}${monthString}${dateString}${hourString}${minuteString}${secondString}`;
+    const outputDir = path.join(outputCsvFilePath, dateDir);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // 出力ファイルのフルパスを組み立てる
+    outputWithIdCsvFileName = path.join(outputDir, outputWithIdCsvFileName);
+    outputWithoutIdCsvFileName = path.join(
+      outputDir,
+      outputWithoutIdCsvFileName,
     );
 
     // TSRのCSVを先に読み込んでマップ化
