@@ -11,8 +11,8 @@ const convertFullWidthSymbols = (str) => str;
 // コマンドライン引数を取得
 const args = process.argv;
 
-let mainCsvFilePath = "output/tsr_converted_from_pdf.csv";
-let outputCsvFilePath = "output/tsr_validated.csv";
+let mainCsvFilePath = "output/step1.csv";
+let outputCsvFilePath = "output/step2.csv";
 let LAST_UPDATE_TSR_DATE = "";
 
 // 引数をパース

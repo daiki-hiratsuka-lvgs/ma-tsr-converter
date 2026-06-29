@@ -301,7 +301,7 @@ if __name__ == "__main__":
     filename = None
     dirname = None
     page_list = None
-    csv_filename = "output/tsr_converted_from_pdf.csv"
+    csv_filename = "output/step1.csv"
     for index, item in enumerate(argv):
         if argv[index] == "--reset-output":
             reset_flag = True

@@ -6,9 +6,9 @@ const Papa = require("papaparse");
 // コマンドライン引数を取得
 const args = process.argv;
 
-let outputUpdatedCsvFileName = "output/tsr_update_companies.csv";
-let outputNewCsvFileName = "output/tsr_new_companies.csv";
-let mainCsvFilePath = "output/tsr_validated.csv";
+let outputUpdatedCsvFileName = "output/step3_update.csv";
+let outputNewCsvFileName = "output/step3_insert.csv";
+let mainCsvFilePath = "output/step2.csv";
 let salesForceCsvFilePath = "";
 
 // 引数をパース
@@ -22,7 +22,7 @@ for (let i = 0; i < args.length - 1; i++) {
   } else if (args[i] === "--output-update") {
     outputUpdatedCsvFileName = args[i + 1];
     i++;
-  } else if (args[i] === "--output-new") {
+  } else if (args[i] === "--output-insert") {
     outputNewCsvFileName = args[i + 1];
     i++;
   }
