@@ -1,0 +1,253 @@
+[
+  {
+    "name_bq": "tsr_companyno_c",
+    "name_tsr": "企業コード",
+    "exclude": ["企業コード"],
+    "rect": [82, 473, 228, 488]
+  },
+  {
+    "name_bq": "buyer_listed_c",
+    "name_tsr": "上場",
+    "exclude": [],
+    "rect": [277, 473, 356, 491]
+  },
+  {
+    "name_bq": "chosanengappi_c",
+    "name_tsr": "調査年月日",
+    "exclude": [],
+
+    "rect": [663, 473, 779, 493]
+  },
+  {
+    "name_bq": "kaisyameikana_c",
+    "name_tsr": "商号（カナ）",
+    "exclude": ["商号（カナ）"],
+    "rect": [81, 457, 549, 473]
+  },
+  {
+    "name_bq": "daihyosyameikana_c",
+    "name_tsr": "代表者カナ",
+    "exclude": [],
+    "rect": [663, 456, 777, 474]
+  },
+  {
+    "name_bq": "company",
+    "name_tsr": "商号（漢字）",
+    "exclude": ["商号（漢字）"],
+    "rect": [79, 440, 550, 455]
+  },
+  {
+    "name_bq": "owner_postal_code_c",
+    "name_tsr": "郵便番号",
+    "exclude": [],
+    "rect": [150, 415, 227, 433]
+  },
+  {
+    "name_bq": "company_address_c",
+    "name_tsr": "所在地",
+    "exclude": [],
+    "rect": [280, 416, 741, 432]
+  },
+  {
+    "name_bq": "company_phnoe_c",
+    "name_tsr": "電話番号",
+    "exclude": [],
+    "rect": [151, 398, 229, 416]
+  },
+  {
+    "name_bq": "setsuritunengetsu_c",
+    "name_tsr": "設立年月",
+    "exclude": ["設立年月"],
+    "rect": [228, 399, 356, 416]
+  },
+  {
+    "name_bq": "sogyonengetsu_c",
+    "name_tsr": "創業年月",
+    "exclude": [],
+    "rect": [418, 398, 496, 416]
+  },
+  {
+    "name_bq": "shihonkin_c",
+    "name_tsr": "資本金",
+    "exclude": ["従業員数", "資本金"],
+    "rect": [495, 397, 666, 415]
+  },
+  {
+    "name_bq": "number_of_employees",
+    "name_tsr": ["従業員数", "\\n"],
+    "rect": [666, 398, 742, 416]
+  },
+  {
+    "name_bq": "industry",
+    "name_tsr": "業種",
+    "exclude": [],
+    "rect": [151, 349, 422, 392]
+  },
+  {
+    "name_bq": "eigyosyumoku_c",
+    "name_tsr": "営業種目",
+    "exclude": ["営業所・支店"],
+    "rect": [150, 300, 493, 342]
+  },
+  {
+    "name_bq": "eigyosho_c",
+    "name_tsr": "営業所・支店",
+    "exclude": ["営業所・支店"],
+    "rect": [422, 300, 777, 343]
+  },
+  {
+    "name_bq": "yakuin_c",
+    "name_tsr": "役員",
+    "exclude": ["仕入先"],
+    "rect": [150, 259, 493, 301]
+  },
+  {
+    "name_bq": "shiiresaki_c",
+    "name_tsr": "仕入先",
+    "exclude": [],
+    "rect": [492, 259, 777, 300]
+  },
+  {
+    "name_bq": "daikabunushi_c",
+    "name_tsr": "大株主",
+    "exclude": ["販売先"],
+    "rect": [150, 218, 493, 260]
+  },
+  {
+    "name_bq": "hanbaisaki_c",
+    "name_tsr": "販売先",
+    "exclude": [],
+    "rect": [492, 218, 777, 259]
+  },
+  {
+    "name_bq": "torihikiginko_c",
+    "name_tsr": "取引銀行",
+    "exclude": [],
+    "rect": [492, 177, 777, 218]
+  },
+  {
+    "name_bq": "gaikyo_c",
+    "name_tsr": "概況",
+    "exclude": [],
+    "rect": [492, 135, 777, 178]
+  },
+  {
+    "name_bq": "uriagesinchoritsu_c",
+    "name_tsr": "売上伸長率",
+    "exclude": [],
+    "func": true,
+    "rect": [223, 134, 425, 153]
+  },
+  {
+    "name_bq": "riekishinchoritsu_c",
+    "name_tsr": "利益伸長率",
+    "exclude": [],
+    "func": true,
+    "rect": [223, 134, 425, 153]
+  },
+  {
+    "name_bq": "representative_c",
+    "name_tsr": "代表者",
+    "exclude": [],
+    "rect": [151, 98, 281, 115]
+  },
+  {
+    "name_bq": "owner_age_c",
+    "name_tsr": "生年月日",
+    "exclude": ["生年月日", "生"],
+    "rect": [153, 82, 282, 99]
+  },
+  {
+    "name_bq": "eto_c",
+    "name_tsr": "干支",
+    "exclude": [],
+    "rect": [350, 82, 422, 99]
+  },
+  {
+    "name_bq": "daihyousyasyushinchi_c",
+    "name_tsr": "出身地",
+    "exclude": ["出身校"],
+    "rect": [488, 82, 581, 98]
+  },
+  {
+    "name_bq": "syusshinko_c",
+    "name_tsr": "出身校",
+    "exclude": [],
+    "rect": [613, 82, 777, 99]
+  },
+  {
+    "name_bq": "kessannengetsu_1_c",
+    "name_tsr": "決算年月1",
+    "exclude": [],
+    "rect": [150, 163, 492, 218],
+    "func": true
+  },
+  {
+    "name_bq": "kessannengetsu_2_c",
+    "name_tsr": "決算年月2",
+    "exclude": [],
+    "rect": [150, 163, 492, 218],
+    "func": true
+  },
+  {
+    "name_bq": "kessannengetsu_3_c",
+    "name_tsr": "決算年月3",
+    "exclude": [],
+    "rect": [150, 163, 492, 218],
+    "func": true
+  },
+  {
+    "name_bq": "uriage_1_c",
+    "name_tsr": "売上（千円）1",
+    "exclude": [],
+    "rect": [200, 163, 286, 207],
+    "func": true
+  },
+  {
+    "name_bq": "uriage_2_c",
+    "name_tsr": "売上（千円）2",
+    "exclude": [],
+    "rect": [200, 163, 286, 207],
+    "func": true
+  },
+  {
+    "name_bq": "uriage_3_c",
+    "name_tsr": "売上（千円）3",
+    "exclude": [],
+    "rect": [200, 163, 286, 207],
+    "func": true
+  },
+  {
+    "name_bq": "rieki_1_c",
+    "name_tsr": "利益（千円）1",
+    "exclude": [],
+    "rect": [315, 163, 385, 207],
+    "func": true
+  },
+  {
+    "name_bq": "rieki_2_c",
+    "name_tsr": "利益（千円）2",
+    "exclude": [],
+    "rect": [315, 163, 385, 207],
+    "func": true
+  },
+  {
+    "name_bq": "rieki_3_c",
+    "name_tsr": "利益（千円）3",
+    "exclude": [],
+    "rect": [315, 163, 385, 207],
+    "func": true
+  },
+  {
+    "name_bq": "OwnerPostalCode__c",
+    "name_tsr": "オーナー郵便番号",
+    "exclude": [],
+    "rect": [351, 98, 402, 116]
+  },
+  {
+    "name_bq": "OwnerAddress__c",
+    "name_tsr": "オーナー住所",
+    "exclude": [],
+    "rect": [418, 98, 777, 116]
+  }
+]
