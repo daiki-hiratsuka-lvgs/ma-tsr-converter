@@ -60,4 +60,7 @@ CF=$(ls -1dt "$STEP6_DIR"/step6_* | head -1)
 LOG "CONSOLIDATE 4分類集約 ($CF)"
 node consolidate_deliverables.js "$CF"
 
+LOG "SF_RECOVER 不明をSF既存と照合（厳密特定→更新へ / M&A等の部分一致→不明に候補列付与）"
+node sf_recover.js "$SF_CSV" | tail -3
+
 LOG "ALL DONE -> $DELIV_DIR/{更新,新規,要確認_重複,不明_法人番号なし}.csv"
