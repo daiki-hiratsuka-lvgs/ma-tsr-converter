@@ -1,246 +1,182 @@
 # TSR → DataLoader 変換ツール
 
-TSR（東京商工リサーチ）の企業データ（PDF）を、Salesforce の DataLoader で取り込める CSV（新規登録用 / 更新用）に変換するツールです。
+TSR（東京商工リサーチ）の企業 PDF を、Salesforce DataLoader 用 CSV（新規/更新）に変換する。
 
-処理の流れは次の通りです。
+**処理の流れ**
 
-1. **step1** TSR の PDF を CSV 化
-2. **step2** 名寄せ（同一企業の重複排除）
-3. **step3** Salesforce の既存データと突合し「新規 / 更新」に振り分け
-4. **step4** 国税庁の法人番号データを準備
-5. **step5** 新規データに**法人番号**を付与（Salesforce 登録には法人番号が必須のため）
-6. **step6** 法人番号をもとに Salesforce の Id を付与（＝実は既存だった企業を「更新」へ回す）
-7. **step7** 成果物を「更新 / 新規 / 要確認_重複 / 不明」の4種に集約
+- step1: PDF → CSV
+- step2: 名寄せ（重複排除）
+- step3: SF 既存と突合 → 新規/更新に振り分け
+- step4: 国税庁 法人番号データ準備
+- step5: 新規に法人番号付与（国税庁/gBiz、SS/S/A）
+- step6: 法人番号から SF Id 付与（既存企業は更新へ回す）
+- step7: 成果物を4種（更新/新規/要確認_重複/不明）に集約
 
-法人番号の付与に使う**データソース**と、突合の**一致レベル（SS/S/A/B/C/D）**は、後述の「データソースと突合レベル」で定義します。
+## セットアップ
 
-## 初回セットアップ
-
-### A. python の仮想環境を構築する
-
-動作確認済みの python のバージョンは 3.13.2 です。
-
-    python3 -m venv .venv
-    source .venv/bin/activate (MacOSの場合)
-    pip install -r requirements.txt
-
-### B. node の実行環境を構築する
-
-動作確認済みの node のバージョンは v22.18.0 です。
-
-    nvm use
-    npm install
+- 動作確認: Python 3.13.2 / Node v22.18.0
+- Python: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
+- Node: `nvm use && npm install`
 
 ## 一括実行（run_all.sh）
 
-step2 以降（名寄せ → SF突合 → 法人番号付与 → SF Id付与 → 候補付与 → 4種集約）を一括で流します。
+step2〜step7 を一括実行する。
 
     bash run_all.sh [作成・更新日] [SalesForceのCSV]
     # 例: bash run_all.sh 2026-6-22 extract.csv
 
-**事前に用意しておくもの**（一度だけ準備すれば以降は再利用可）:
+**事前準備（一度だけ）**
 
-- `output/step1.csv` … step1（PDF→CSV変換）の出力
-- `output/step4.csv` … step4（国税庁データの名寄せ）の出力
-- SalesForce のエクスポート CSV（既定 `extract.csv`。`Id` / `TSR_companyno__c` / `houjinbangou__c` を含むこと）
-- `~/.gbiz_token` … gBizINFO API のトークン
-
-各ステップを個別に実行したい場合や、処理内容の詳細は以下を参照してください。
+- `output/step1.csv`（step1 の出力）
+- `output/step4.csv`（step4 の出力）
+- SalesForce エクスポート CSV（既定 `extract.csv`。`Id` / `TSR_companyno__c` / `houjinbangou__c` を含む）
+- `~/.gbiz_token`（gBizINFO API トークン）
 
 ## データソースと突合レベル
 
-新規企業には法人番号が付いていません（Salesforce 登録には法人番号が必須）。そこで外部の公的データと **会社名＋住所** で突合して法人番号を特定します。使用するデータソースは次の2つです。
+新規企業は法人番号を持たない（SF 登録に必須）。外部の公的データと **会社名＋住所** で突合して特定する。
 
-### 使用するデータソース
+**データソース**
 
-- **[国税庁 法人番号システム](https://www.houjin-bangou.nta.go.jp/download/zenken/)**（step4 で取り込む）<br/>
-  日本の**ほぼ全法人**の「**法人番号・商号（社名）・所在地**」を網羅する公的データ。社名と住所は持ちますが、代表者名・設立年月などの詳細項目は持ちません。→ **社名＋住所による網羅的な突合**に使います。上記リンクの「全件データのダウンロード」から **CSV 形式・Unicode** で取得します（step4 参照）。
+- **[国税庁 法人番号システム](https://www.houjin-bangou.nta.go.jp/download/zenken/)**（step4 で取り込む）
+  - ほぼ全法人の「法人番号・商号・所在地」を網羅。社名＋住所のみ（代表者・設立等は持たない）
+  - 上記から CSV・Unicode 形式でダウンロード
+- **[経済産業省 gBizINFO](https://info.gbiz.go.jp/)**（`gbiz_assign.js` / `gbiz_confirm.js`）
+  - 代表者名・設立年月・資本金・従業員数・郵便番号・カナ 等を付加（ただし全法人網羅ではなく、空が多い）
+  - Web API 利用。上記サイトで登録したトークンを `~/.gbiz_token` に配置
 
-- **[経済産業省 gBizINFO（gビズインフォ）](https://info.gbiz.go.jp/)**（`gbiz_assign.js` / `gbiz_confirm.js` で使用）<br/>
-  経済産業省が運営する法人情報プラットフォーム。国税庁の基本情報に加え、補助金・調達・各種届出などの情報から「**代表者名・設立年月・資本金・従業員数・郵便番号・会社名カナ**」等が付加されています。ただし**全法人を網羅しているわけではなく**、これら詳細項目は多くの企業で空です（主に補助金申請などを行った企業に限られる）。データは Web API 経由で取得します。上記サイトで REST API の利用登録を行い、発行されたトークンを `~/.gbiz_token` に配置してください。→ 住所の**別ソースでの裏取り**と、不明企業の**候補の絞り込み（代表者/設立 等の一致確認）**に使います。
+**一致レベル**（会社名の完全一致が前提。住所の一致深度でレベル付け）
 
-### 一致レベル（SS / S / A / B / C / D）
-
-突合はまず **会社名の完全一致** を前提とし、その上で **住所がどこまで一致するか** でレベルを付けます（同名の別法人が各地に存在するため、住所の深さで「同一企業である確からしさ」を担保します）。
-
-| レベル | 住所の一致範囲（**会社名は完全一致が前提**） | 扱い |
+| レベル | 住所の一致範囲 | 扱い |
 | --- | --- | --- |
-| **SS** | 都道府県＋市区町村＋**番地まで完全一致** | **確定（採用）** |
-| **S** | 都道府県＋市区町村が一致し、住所前半が部分一致（ビル名以降は不問） | **確定（採用）** |
-| **A** | 都道府県＋市区町村が一致し、**町丁まで一致**（番地以降は不問） | **確定（採用）** |
-| **B** | 都道府県＋市区町村までは一致するが、町丁・番地は不一致 | 不明（候補提示のみ） |
-| **C** | 都道府県までは一致するが、市区町村が不一致 | 不明（候補提示のみ） |
-| **D** | 会社名のみ一致（都道府県も不一致） | 不明（候補提示のみ） |
+| SS | 番地まで完全一致 | 確定 |
+| S | 市区町村一致＋住所前半一致（ビル名以降は不問） | 確定 |
+| A | 町丁まで一致（番地以降は不問） | 確定 |
+| B | 市区町村まで一致 | 不明（候補のみ） |
+| C | 都道府県まで一致 | 不明（候補のみ） |
+| D | 会社名のみ一致 | 不明（候補のみ） |
 
-- **番地〜町丁レベルまで一致する SS / S / A のみ**を法人番号の確定に採用します。
-- **B 以下は住所の裏付けが弱く**、同名の別法人を誤って結び付ける恐れがあるため **確定しません**（＝「不明」。step5-⑤ で候補として提示するに留めます）。
+- **SS/S/A のみ確定採用**。B 以下は同名別法人の恐れがあり確定しない（不明。候補提示のみ）
+- TSR の複数住所（本社/オーナー/営業所）は全て照合し、最良レベルを採用
 
-> TSR 側は本社・オーナー・営業所など**複数の住所**を持つことがあります。突合ではそれら全てを照合し、**いずれか最良の一致レベル**を採用します。
+## step1 PDF → CSV
 
-## step1 TSR の PDF データを CSV に変換する
+    python step1.py -d <PDFディレクトリ>
 
-    python step1.py -d <PDFがあるディレクトリ名>
+- ディレクトリ配下の全 PDF を再帰探索して CSV 化
 
-`-d` で指定されたディレクトリ配下にある **全ての** PDF ファイルを再帰的に探索して CSV に変換します。
-
-### コマンドのオプション
-
-| オプション | 説明 | デフォルト |
+| オプション | 説明 | 既定 |
 | --- | --- | --- |
-| `-d` | PDF があるディレクトリ名 | （必須） |
-| `-o` | 出力ファイル名 | `output/tsr_converted_from_pdf.csv` |
-| `--reset-output` | 出力ファイルを初期化してから書き出す（未指定時は追記） | 追記 |
+| `-d` | PDF ディレクトリ | 必須 |
+| `-o` | 出力ファイル | `output/tsr_converted_from_pdf.csv` |
+| `--reset-output` | 出力を初期化（既定は追記） | 追記 |
 
-## step2 CSV を名寄せする
+## step2 名寄せ
 
     node step2.js -u <作成・更新日>
 
-step1 で作成した CSV ファイルを名寄せします。
+- 同一 TSR 番号の重複を排除（重複コピーが新規に紛れるのを防ぐ）。排除分は `output/step2_dropped_duplicates.csv`
 
-> **重複排除（既定で有効）**: 同一 TSR 番号の行が複数あると、後続の突合で「同じ企業の重複コピー」が新規（insert）に紛れてしまうため、step2 で TSR 番号の重複を排除します。排除された行は `output/step2_dropped_duplicates.csv` に記録されます。<br/>
-> 重複を残したい場合は `--keep-duplicates` を付けてください。
-
-### コマンドのオプション
-
-| オプション | 説明 | デフォルト |
+| オプション | 説明 | 既定 |
 | --- | --- | --- |
-| `-u` | SalesForceのレコードに登録する作成・更新日<br/> (例: 2025年12月1日なら "2025-12-1") | `""` |
-| `-i` | 入力ファイル名 (CSV) | `output/step1.csv` |
-| `-o` | 出力ファイル名 (CSV) | `output/step2.csv` |
-| `--keep-duplicates` | TSR 番号の重複排除を無効化する | 排除する |
+| `-u` | 作成・更新日（例 "2025-12-1"） | `""` |
+| `-i` | 入力 CSV | `output/step1.csv` |
+| `-o` | 出力 CSV | `output/step2.csv` |
+| `--keep-duplicates` | 重複排除を無効化 | 排除する |
 
-## step3 Salesforce の CSV と突合する
+## step3 Salesforce と突合
 
-    node step3.js -s <Salesforceの入力ファイル名>
+    node step3.js -s <SalesForceのCSV>
 
-step2 で作成した CSV ファイルと SalesForce のデータを突合して、企業データが新規か更新かを自動的に振り分けます。
+- SF 既存データと突合し、新規/更新に振り分け
+- SF CSV には `Id` / `TSR_companyno__c` / `houjinbangou__c` を必ず含める（DataLoader で出力）
+- 出力: 更新 `output/step3_update.csv` / 新規 `output/step3_insert.csv`
 
-### SalesForce のデータの下準備
-DataLoader を使って Salesforce から会社データを CSV 形式で出力する必要があります。<br/>
-※ ただし、SalesForce の会社データには、必ず「**Id**, **TSR_companyno\_\_c**, **houjinbangou\_\_c**」の三つのカラムを含めてください。これを含めないと正しく突合できません。
-
-### 生成されるファイル
-
-CSV ファイルが 2 つ作成されます。<br/>
-三つのカラムの有無（**Id**, **TSR_companyno\_\_c**, **houjinbangou\_\_c**）で、企業データが新規か更新かを自動的に振り分けます。
-- 更新データのファイルパス（デフォルト値）：`output/step3_update.csv`
-- 新規データのファイルパス（デフォルト値）：`output/step3_insert.csv`
-
-### コマンドのオプション
-
-| オプション | 説明 | デフォルト |
+| オプション | 説明 | 既定 |
 | --- | --- | --- |
-| `-s` | SalesForce の入力ファイル名 (CSV) | （必須） |
-| `-i` | step2 で作成したファイル名 (CSV) | `output/step2.csv` |
-| `--output-update` | 更新データの出力ファイル名 (CSV) | `output/step3_update.csv` |
-| `--output-insert` | 新規データの出力ファイル名 (CSV) | `output/step3_insert.csv` |
+| `-s` | SF の CSV | 必須 |
+| `-i` | step2 の CSV | `output/step2.csv` |
+| `--output-update` | 更新の出力 | `output/step3_update.csv` |
+| `--output-insert` | 新規の出力 | `output/step3_insert.csv` |
 
-## step4 法人番号の CSV ファイルを名寄せする
+## step4 国税庁データ準備
 
-    node step4.js -i <国税庁の法人番号の一覧ファイル名>
+    node step4.js -i <国税庁法人番号一覧CSV>
 
-新規の企業データに対しては法人番号が付与されておらず、法人番号がないと SalesForce に登録できません。国税庁の法人番号の一覧データの住所部分を名寄せすることで、step5 でより高い精度で法人番号を突合することができます。
+- 国税庁データの住所を名寄せ（step5 の突合精度が上がる）
+- データは[国税庁](https://www.houjin-bangou.nta.go.jp/download/zenken/)から CSV・Unicode で取得
 
-### 国税庁のデータの下準備
-[国税庁のウェブサイト](https://www.houjin-bangou.nta.go.jp/download/zenken/)から法人番号の一覧ファイルを**CSV 形式・Unicode**でダウンロードしてください。
-
-### コマンドのオプション
-
-| オプション | 説明 | デフォルト |
+| オプション | 説明 | 既定 |
 | --- | --- | --- |
-| `-i` | 国税庁の法人番号の一覧ファイル名 (CSV) | （必須） |
-| `-o` | 出力ファイル名 (CSV) | `output/step4.csv` |
+| `-i` | 国税庁 CSV | 必須 |
+| `-o` | 出力 | `output/step4.csv` |
 
-## step5 新規データに法人番号を付与する（4段階カスケード）
+## step5 新規に法人番号付与（4段階カスケード）
 
-> **国税庁データ + 経産省(gBiz)データ の2ソース**を用い、**信頼度 SS/S/A のみを採用**します。<br/>
-> **B 以下（都道府県一致どまり・会社名のみ一致など）は紐付けなし（＝不明）** とします。<br/>
-> **上位の段で確定した紐付けは、以降の段で上書きしません**（上位優先の一方向カスケード）。<br/>
-> ※ SS/S/A/B/C/D の定義は上記「データソースと突合レベル」を参照。
+- 国税庁 + gBiz の2ソースで **SS/S/A のみ採用**（B 以下は不明）
+- 上位段で確定した紐付けは下位段で上書きしない（上位優先）
 
-次の順で実行します。
+**実行順**
 
-    node kokuzei_assign.js     # ① 国税庁データ(step4.csv)で SS/S/A を厳密突合 -> output/kokuzei_assigned.csv
-    node gbiz_assign.js        # ② 経産省(gBiz API)で SS/S/A を厳密突合  -> output/gbiz_assigned.csv
-    node final_assign.js       # ③ 下記4段階で最終確定               -> output/final_assigned.csv
-    node produce_final.js      # ④ 新規全件に反映し「確定/不明」に分離
+    node kokuzei_assign.js   # ① 国税庁で SS/S/A 突合
+    node gbiz_assign.js      # ② gBiz で SS/S/A 突合（国税庁 SS/S 確定分はスキップ）
+    node final_assign.js     # ③ 4段階で最終確定
+    node produce_final.js    # ④ 確定/不明に分離
 
-### ③ final_assign.js の4段階（上位優先・確定は不変）
+**③ 4段階の優先順**: 1. 国税庁 SS/S → 2. gBiz SS/S → 3. 国税庁 A → 4. gBiz A（一意に付与できたもののみ採用）
 
-1. 国税庁データで **SS/S** 照合
-2. 経産省(gBiz)データで **SS/S** 照合
-3. 国税庁データで **A** 照合
-4. 経産省(gBiz)データで **A** 照合
+**④ 出力**
 
-いずれかの段で一意に付与できたものだけを採用し、上位段で確定したら以降は変更しません。<br/>
-**SS / S / A（番地〜町丁まで一致）のみ採用**し、**B 以下は「不明（法人番号なし）」として隔離**します。
+- `final_kakutei_confirmed.csv`: 確定分（step6 の入力）
+- `final_kakutei_unknown.csv`: 不明（新規登録しない）
+- `final_kakutei.csv`: 新規全件（確定分は houjinbangou 反映）
 
-### ④ produce_final.js の生成物
+**⑤ 不明への候補ヒント付与（確定はしない・候補提示のみ）**
 
-- `output/final_kakutei.csv`：新規全件（確定分は houjinbangou__c を反映）
-- `output/final_kakutei_confirmed.csv`：**法人番号が確定した新規データ**（step6 の入力に使う）
-- `output/final_kakutei_unknown.csv`：**法人番号を特定できなかった新規データ（＝不明・要確認。新規登録しない）**
+    node bcd_candidates.js   # B/C/D 候補（国税庁+gBiz の社名一致）を列で付与
+    node gbiz_confirm.js     # gBiz 詳細で代表者/設立/郵便/カナを裏取りし一致項目を列で付与
 
-> `gbiz_assign.js` は gBizINFO API を使用します（トークンの準備は「データソースと突合レベル」を参照）。国税庁で SS/S 確定済みの企業は API 呼び出しをスキップします。
+- `bcd_candidates.js` → `候補_最良レベル / 候補_件数 / 候補_法人番号 / 候補_詳細`
+- `gbiz_confirm.js` → `候補_gBiz推奨法人番号 / 候補_gBiz一致項目 / 候補_gBiz詳細`
+- いずれも不明ファイルに列を追記するのみ（確定・移動はしない）
 
-### ⑤ 不明（法人番号なし）への候補ヒント付与（**確定はしない・候補提示のみ**）
+## step6 SF Id 付与
 
-4段階で確定できなかった「不明」に対して、手動確認を助けるための**候補ヒント**を列として付与します。<br/>
-**これらは確定（付与）ではありません。** 番地一致（SS/S/A）に達していない B 以下は、たとえ社名や項目が一致しても新規登録には使いません。
+    node step6.js -i output/final_kakutei_confirmed.csv -s <SalesForceのCSV>
 
-    node bcd_candidates.js     # 不明に B/C/D 候補（国税庁 + gBiz の社名一致）を列で付与
-    node gbiz_confirm.js       # 不明の候補を gBiz 詳細で裏取りし「一致項目」を列で付与
+- 確定した法人番号で SF を再突合し、既存なら Id を付与（＝新規ではなく更新に回る）
 
-- `bcd_candidates.js`：社名一致の候補を国税庁と gBiz から集め、`候補_最良レベル / 候補_件数 / 候補_法人番号 / 候補_詳細` を付与。
-  - **B** = 社名 + 都道府県 + 市区町村 一致 / **C** = 社名 + 都道府県 一致 / **D** = 社名のみ一致
-- `gbiz_confirm.js`：各候補法人番号を gBizINFO 詳細 API で引き、TSR 側と **代表者名 / 設立年月 / 郵便番号 / 会社名カナ** を照合。一致した項目を `候補_gBiz推奨法人番号 / 候補_gBiz一致項目 / 候補_gBiz詳細` として付与（**あくまで候補の裏取り。確定はしない**）。
-
-いずれも `不明_法人番号なし.csv` に列を追記するのみで、**行を確定側へ移動したり法人番号を付与したりはしません**。
-
-## step6 新規データに SalesForce の ID を付与する
-
-    node step6.js -i output/final_kakutei_confirmed.csv -s <SalesForceの入力ファイル名>
-
-### コマンドのオプション
-
-| オプション | 説明 | デフォルト |
+| オプション | 説明 | 既定 |
 | --- | --- | --- |
-| `-i` | step5(produce_final) で確定した新規データ (`final_kakutei_confirmed.csv`) | （必須） |
-| `-s` | SalesForce の入力ファイル名 (CSV) | （必須） |
-| `-o` | 出力ファイルのディレクトリ名 | `output` |
+| `-i` | confirmed CSV | 必須 |
+| `-s` | SF の CSV | 必須 |
+| `-o` | 出力ディレクトリ | `output` |
 
-### どんな処理をしているのか
+**出力**
 
-新規データに法人番号を付与したら、法人番号をもとに SalesForce の Id を付与できる場合があります。（すなわち、**付与できた場合は新規データではなく更新データになる**）<br/>
-再度、SalesForce の企業データを Id で突合することで、新規データが本当に新規データなのかをチェックします。
+- `insert.csv`: SF に存在しない新規
+- `update.csv`: SF に存在する更新
+- `duplicate.csv`: SF 側で一意に紐づかない（要確認）
+- `unknown_no_corp.csv`: 法人番号なしの隔離（新規に混ぜない）
 
-### 生成されるファイル
+## step7 4種に集約
 
-- SalesForce の ID が存在しない新規データ：`insert.csv`
-- SalesForce の ID が存在する**更新データ**：`update.csv`
-- SalesForce 側で一意に紐づかない（要手動確認）：`duplicate.csv`
-- **法人番号が特定できず新規登録できない（要確認）：`unknown_no_corp.csv`**<br/>
-  ※ 法人番号のない行を**新規（insert）に混ぜない**ための隔離ファイル。`final_kakutei_unknown.csv` と合わせて要確認対象。
-
-## step7 成果物を4種類に集約する
-
-    # 更新.csv を step3 の更新データで初期化してから集約する
     cp output/step3_update.csv "output/final_deliverables/更新.csv"
     node consolidate_deliverables.js output/step6_<日付>
 
-最終的な成果物を **4種類だけ** に集約して `output/final_deliverables/` に出力します。
+`output/final_deliverables/` に4ファイルを出力。
 
 | ファイル | 内容 | DataLoader |
 | --- | --- | --- |
-| `更新.csv` | 既存TSR一致（step3）＋ 法人番号確定でSF既存だった分（step6） | **更新（update）** |
-| `新規.csv` | 法人番号を確定できてSFに存在しなかった分（step6） | **新規（insert）** |
-| `要確認_重複.csv` | SF側で一意に紐づかない（要手動確認） | 読み込ませない |
-| `不明_法人番号なし.csv` | 法人番号を確定できなかった分（候補ヒント列付き） | 読み込ませない |
+| `更新.csv` | 既存TSR一致(step3) ＋ 法人番号確定でSF既存(step6) | 更新 |
+| `新規.csv` | 法人番号確定でSF未存在(step6) | 新規 |
+| `要確認_重複.csv` | SF側で一意に紐づかない | 読み込ませない |
+| `不明_法人番号なし.csv` | 法人番号を確定できず（候補列付き） | 読み込ませない |
 
-> 4ファイルの合計が step2 のユニーク TSR 総数と一致することを検算に使えます。<br/>
-> `不明_法人番号なし.csv` は step5-⑤ の候補列（`候補_*` / `候補_gBiz_*`）を持ち、手動確認の手掛かりになります。
+- 4ファイルの合計 = step2 のユニーク TSR 総数（検算に使える）
+- 不明は候補列（`候補_*` / `候補_gBiz_*`）を手動確認の手掛かりに
 
-### DataLoader 投入時の注意
+**DataLoader 投入時の注意**
 
-- DataLoader に登録するのは **`更新.csv`（更新）** と **`新規.csv`（新規）** の2つだけです。`要確認_重複.csv` と `不明_法人番号なし.csv` は登録せず、手動確認に回します。
-- **step3 の新規データ（`step3_insert.csv`）を直接読み込まないこと。** 法人番号（step5）と SF Id（step6）の確認を経ておらず、既存企業の重複登録や法人番号なしの登録が混入します。必ず集約済みの `新規.csv` を使ってください。
+- 登録するのは `更新.csv`（更新）と `新規.csv`（新規）のみ。`要確認_重複.csv` / `不明_法人番号なし.csv` は登録しない
+- `step3_insert.csv` を直接読み込まない（法人番号・SF Id の確認前のため）。必ず集約済みの `新規.csv` を使う
