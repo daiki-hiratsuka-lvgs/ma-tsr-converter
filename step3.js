@@ -96,9 +96,19 @@ const main = async () => {
         (company) =>
           company[TSRIdIndex].length > 0 && !isNaN(company[TSRIdIndex])
       );
-      const TSRIdList = filteredCompanyData.map((company) =>
-        Number(company[TSRIdIndex])
+      // TSR番号 -> 企業行 のマップ（step2で名寄せ済みのため一意。念のため先着優先）。
+      const companyByTSR = new Map();
+      filteredCompanyData.forEach((company) => {
+        const key = Number(company[TSRIdIndex]);
+        if (!companyByTSR.has(key)) companyByTSR.set(key, company);
+      });
+      const matchedTSR = new Set();
+      // 出力列の参照元を事前解決（毎行 indexOf しないための高速化）
+      const insertColTsrIdx = outputNewHeaderData.map((c) =>
+        headerData.indexOf(c)
       );
+      let updateColTsrIdx = null;
+      let updateColSfIdx = null;
 
       const salesForceReadStream = fs.createReadStream(salesForceCsvFilePath, {
         encoding: "utf8",
@@ -116,63 +126,53 @@ const main = async () => {
             );
             salesForceIdIndex =
               salesForceHeaderData.indexOf("TSR_companyno__c");
+            // update列の参照元（TSR側優先、無ければSF側、無ければ空）を確定
+            updateColTsrIdx = outputUpdateHeaderData.map((c) =>
+              headerData.indexOf(c)
+            );
+            updateColSfIdx = outputUpdateHeaderData.map((c) =>
+              salesForceHeaderData.indexOf(c)
+            );
           } else {
             // TSR番号が存在するか判定
+            const raw = row.data[salesForceIdIndex];
             const salesForceId =
-              row.data[salesForceIdIndex].length > 0 &&
-              !isNaN(row.data[salesForceIdIndex])
-                ? Number(row.data[salesForceIdIndex])
-                : -1;
-            const tsrIdListIndex = TSRIdList.indexOf(salesForceId);
-            if (salesForceId != -1 && tsrIdListIndex != -1) {
-              // 既存企業データの場合
-              console.log(`${rowCounter} found`);
-              const matchTSRCompanyData = filteredCompanyData.find(
-                (company) => Number(company[TSRIdIndex]) === salesForceId
-              );
+              raw && raw.length > 0 && !isNaN(raw) ? Number(raw) : -1;
+            if (
+              salesForceId !== -1 &&
+              companyByTSR.has(salesForceId) &&
+              !matchedTSR.has(salesForceId)
+            ) {
+              // 既存企業データ（TSR番号一致・先着のSF行を採用）
+              matchedTSR.add(salesForceId);
+              const matchTSRCompanyData = companyByTSR.get(salesForceId);
               const salesForceData = row.data;
-              const updateInputData = outputUpdateHeaderData.map(
-                (columnName) => {
-                  const tsrIndex = headerData.indexOf(columnName);
-                  if (tsrIndex != -1) {
-                    // TSRにデータがある場合
-                    return matchTSRCompanyData[tsrIndex];
-                  }
-
-                  const salesForceIndex =
-                    salesForceHeaderData.indexOf(columnName);
-                  if (salesForceIndex != -1) {
-                    // SalesForceにデータがある場合
-                    return salesForceData[salesForceIndex];
-                  }
-
-                  return "";
-                }
-              );
+              const updateInputData = outputUpdateHeaderData.map((c, i) => {
+                const t = updateColTsrIdx[i];
+                if (t !== -1) return matchTSRCompanyData[t];
+                const s = updateColSfIdx[i];
+                if (s !== -1) return salesForceData[s];
+                return "";
+              });
               updatedCompanyData.push(updateInputData);
-              TSRIdList.splice(tsrIdListIndex, 1);
-              filteredCompanyData.splice(tsrIdListIndex, 1);
-            } else {
-              console.log(`${rowCounter} not found`);
             }
           }
           rowCounter++;
         },
         complete: () => {
-          // 新規企業の場合
+          // 新規企業: どのSF行にも一致しなかった企業
           filteredCompanyData.forEach((company) => {
-            const newInputData = outputNewHeaderData.map((columnName) => {
-              const tsrIndex = headerData.indexOf(columnName);
-              if (tsrIndex != -1) {
-                // TSRにデータがある場合
-                return company[tsrIndex];
-              }
-
-              return "";
+            if (matchedTSR.has(Number(company[TSRIdIndex]))) return;
+            const newInputData = outputNewHeaderData.map((c, i) => {
+              const t = insertColTsrIdx[i];
+              return t !== -1 ? company[t] : "";
             });
             newCompanyData.push(newInputData);
           });
           console.log(`✅ SalesforceのCSV読み込み完了: ${rowCounter - 1}件`);
+          console.log(
+            `   更新(TSR一致): ${updatedCompanyData.length} / 新規: ${newCompanyData.length}`
+          );
           resolve();
         },
         error: (error) => {

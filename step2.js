@@ -14,9 +14,12 @@ const args = process.argv;
 let mainCsvFilePath = "output/step1.csv";
 let outputCsvFilePath = "output/step2.csv";
 let LAST_UPDATE_TSR_DATE = "";
+// 名寄せ(重複排除): 同一 TSR番号 の行は1件に統合する(既定ON)。
+// 同一企業が複数行あると後続の突合で重複コピーが新規に紛れるため、ここで排除する。
+let DEDUPE = true;
 
 // 引数をパース
-for (let i = 0; i < args.length - 1; i++) {
+for (let i = 0; i < args.length; i++) {
   if (args[i] === "-i") {
     mainCsvFilePath = args[i + 1];
     i++;
@@ -26,6 +29,9 @@ for (let i = 0; i < args.length - 1; i++) {
   } else if (args[i] === "-u") {
     LAST_UPDATE_TSR_DATE = args[i + 1];
     i++;
+  } else if (args[i] === "--keep-duplicates") {
+    // 重複排除を無効化したい場合のエスケープハッチ
+    DEDUPE = false;
   }
 }
 
@@ -190,7 +196,23 @@ const main = async () => {
     let outputHeaders = [];
     let rowCounter = 0;
 
-    console.log("🚀 メインCSVファイルの変換処理を開始します...");
+    // 名寄せ(重複排除)用: 既出の TSR番号 を記録。重複行はドロップして別ファイルに記録。
+    const seenTSR = new Set();
+    let dedupedCount = 0;
+    const droppedCsvFilePath = outputCsvFilePath.replace(
+      /\.csv$/i,
+      "_dropped_duplicates.csv",
+    );
+    const droppedStream = DEDUPE
+      ? fs.createWriteStream(droppedCsvFilePath, { encoding: "utf8" })
+      : null;
+    if (droppedStream) {
+      droppedStream.write("TSR_companyno__c,Name,行番号\n");
+    }
+
+    console.log(
+      `🚀 メインCSVファイルの変換処理を開始します...(名寄せ重複排除: ${DEDUPE ? "ON" : "OFF"})`,
+    );
 
     Papa.parse(readStream, {
       header: true,
@@ -298,6 +320,25 @@ const main = async () => {
             isFirstRow = false;
           }
 
+          // --- 名寄せ: 同一 TSR番号 の重複行を排除(先着優先) ---
+          if (DEDUPE) {
+            const tsrKey = String(convertedRow.TSR_companyno__c ?? "").trim();
+            if (tsrKey) {
+              if (seenTSR.has(tsrKey)) {
+                dedupedCount++;
+                droppedStream.write(
+                  Papa.unparse([[tsrKey, convertedRow.Name ?? "", rowCounter]], {
+                    header: false,
+                    quotes: true,
+                  }) + "\n",
+                );
+                return; // 重複はスキップ(出力しない)
+              }
+              seenTSR.add(tsrKey);
+            }
+            // TSR番号が無い行はキー不明のため排除せず残す(別企業の誤統合を回避)
+          }
+
           const values = outputHeaders.map(
             (header) => convertedRow[header] ?? "",
           );
@@ -316,6 +357,12 @@ const main = async () => {
         console.log(
           `✅ メインファイル ${rowCounter}行の変換処理が完了しました。`,
         );
+        if (DEDUPE) {
+          console.log(
+            `🧹 名寄せ重複排除: ${dedupedCount}件を排除(ユニークTSR ${seenTSR.size}件)。排除分 -> ${droppedCsvFilePath}`,
+          );
+          if (droppedStream) droppedStream.end();
+        }
         writeStream.end(() => {
           console.log(`🎉 CSVファイルを出力しました: ${outputCsvFilePath}`);
         });
