@@ -12,6 +12,7 @@ TSR（東京商工リサーチ）の企業 PDF を、Salesforce DataLoader 用 C
 - step6: 法人番号から SF Id 付与（既存企業は更新へ回す）
 - step7: 成果物を4種（更新/新規/要確認_重複/不明）に集約
 - step8: 不明を SF 既存レコードと照合し、厳密特定を更新へ／M&A候補を付与
+- step9（任意）: 残る不明を AI で登記調査（改称・移転を追跡）して厳密特定
 
 ## セットアップ
 
@@ -192,6 +193,20 @@ step2〜step7 を一括実行する。
 - **厳密特定**（同一市区町村 ＋ (社名 or 設立年月) ＋ 連絡先が一意）→ SF 既存の重複として `更新.csv` へ（SF Id 付き）
 - **M&A等の部分一致**（社名/代表者/電話などが変わり決め手に欠ける）→ `不明_法人番号なし.csv` に `SF候補_法人番号 / SF候補_一致項目` を付与（自動確定しない）
 - 監査ログ: `output/sf_recovered.csv`
+
+## step9（任意）不明の AI 登記調査による回収
+
+残る不明について、**社名変更(改称)・本社移転・買収**を追跡して厳密特定する。国税庁/gBiz は現在の登記しか持たないが、`houjin.info` 等は**登記の変更履歴（旧商号・旧所在地・閉鎖/復活）**を持つため、AI エージェントに1社ずつ調査させる。手動運用（エージェント実行を伴う）。
+
+    node address_candidates.js      # ① 国税庁 step4 を「住所」で検索（社名不問・全TSR住所）→ 改称候補を検出
+    node prep_dossiers.js           # ② 社名候補＋住所候補を統合し、判定用バッチを output/dossiers/ に分割
+    # ③ AIエージェントが各バッチを houjin.info の変更履歴で判定 → verdicts_NN.json（confirm/reject/uncertain）
+    node harvest_verdicts.js        # ④ confirm(high) のみ採用 → output/ai_confirmed.csv（不明に AI判定 列も付与）
+    node integrate_confirmed.js output/ai_confirmed.csv   # ⑤ SF照合し更新/新規へ振り分け・不明から除外
+
+- **確定は「登記の現/旧住所 or 旧商号が TSR と一致」した場合のみ**。代表者・電話・公式サイト等の**外部情報のみ**で登記の裏付けがないものは確定せず、不明に「要確認(強候補)」として残す
+- 採用前に別エージェントで**敵対的再検証**（別会社である証拠を探す）を行い、誤付与を防ぐ
+- `address_candidates.js` / `prep_dossiers.js` / `harvest_verdicts.js` / `integrate_confirmed.js` / `sf_recover.js` / `resolve_active.js` は不明回収用の補助ツール
 
 ## DataLoader 投入時の注意
 
