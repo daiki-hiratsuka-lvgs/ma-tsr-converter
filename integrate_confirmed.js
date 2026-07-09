@@ -46,7 +46,12 @@ Papa.parse(fs.createReadStream(SF, { encoding: "utf8" }), {
       else insRows.push(INSERT_FIELDS.map((f) => base[f] ?? ""));
     }
     // 追記
-    const app = (file, rows) => { if (rows.length) fs.appendFileSync(file, rows.map((r) => Papa.unparse([r], { header: false, quotes: true })).join("\n") + "\n"); };
+    const app = (file, rows) => {
+      if (!rows.length) return;
+      // 既存ファイルが改行で終わっていないと追記行が最終行に結合し破損するため、必ず改行境界を保証する
+      try { const fd = fs.openSync(file, "r"); const st = fs.fstatSync(fd); if (st.size) { const b = Buffer.alloc(1); fs.readSync(fd, b, 0, 1, st.size - 1); if (b.toString() !== "\n") fs.appendFileSync(file, "\n"); } fs.closeSync(fd); } catch (e) {}
+      fs.appendFileSync(file, rows.map((r) => Papa.unparse([r], { header: false, quotes: true })).join("\n") + "\n");
+    };
     app(path.join(DELIV, "更新.csv"), upRows);
     app(path.join(DELIV, "新規.csv"), insRows);
     // 不明から統合分を除外
