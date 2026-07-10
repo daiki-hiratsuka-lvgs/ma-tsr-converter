@@ -11,3 +11,5 @@ extract.csv
 *.log
 # gBiz APIトークン（誤配置対策。本来は ~/.gbiz_token に置く）
 .gbiz_token
+Kihonjoho_UTF-8*.csv
+Kihonjoho_UTF-8*.zip
